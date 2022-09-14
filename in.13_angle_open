@@ -1,0 +1,9 @@
+print 'OPENING THE FUNNEL'
+
+
+fix	Movelid all move/mesh mesh lid linear ${openvel} 0. 0.
+run	${opensteps}
+unfix	Movelid
+
+
+jump in.14_angle_emptying

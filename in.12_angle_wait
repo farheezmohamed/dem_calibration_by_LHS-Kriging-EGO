@@ -1,0 +1,4 @@
+print 'WAITING FOR THE PARTICLES TO SETTLE'
+
+run 1000 every 1000 "print 'KINETIC ENERGY = ${ec} and parameters = (${poisson}, ${CoF}, ${CoRest}, ${CoRF})'"
+if "${ec} < 5e-3" then "jump in.13_angle_open" else "jump in.12_angle_wait"

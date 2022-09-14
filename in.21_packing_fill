@@ -1,0 +1,136 @@
+# Simulation density
+
+atom_style    granular
+atom_modify   map array
+boundary      f f f
+newton        off
+
+communicate   single vel yes
+
+units         si
+
+
+# Definition of boundaries
+variable xmin equal -0.061
+variable xmax equal 0.021
+variable ymin equal -0.021
+variable ymax equal 0.021
+variable zmin equal -0.001
+variable zmax equal 0.4
+
+# Variable timestep
+variable dt equal 5e-5
+
+
+### Material properties ###
+
+# Number of materials
+variable natoms equal 1
+
+# Material properties
+variable youngmodulus equal 5e6
+
+
+# Particle properties
+variable nradius equal 1	#number of radius
+variable radius1 equal 2e-3	# meter
+variable frac1 equal 1		# 100% of particle radius 2e-3
+variable density equal 2700	# kg/m3
+
+### Variable simulation steps ###
+
+# Variable filling of the tube
+variable filltime equal 2	#second
+variable fillmass equal 0.6	#0.6kg of particles
+variable fillmassrate equal ${fillmass}/${filltime}	#kg/s
+variable fillsteps equal ${filltime}/${dt}	#number of run
+
+# Variable closing the tube
+variable closevel equal 0.04	#m/s
+variable closetime equal 1	#movement of 1 second
+variable closesteps equal ${closetime}/${dt}	#number of run
+
+### Definition of simulation box ### 
+
+region        domain block ${xmin} ${xmax} ${ymin} ${ymax} ${zmin} ${zmax} units box
+create_box    1 domain
+
+neighbor      0.002 bin
+neigh_modify  delay 0
+
+
+### Material properties required for new pair styles ###
+
+fix  m1 all property/global youngsModulus peratomtype ${youngmodulus}
+fix  m2 all property/global poissonsRatio peratomtype ${poisson}
+fix  m3 all property/global coefficientRestitution peratomtypepair ${natoms} ${CoRest}
+fix  m4 all property/global coefficientFriction peratomtypepair ${natoms} ${CoF}
+fix  m5 all property/global coefficientRollingFriction peratomtypepair ${natoms} ${CoRF}
+
+# Contact model 
+pair_style  gran model hertz tangential history rolling_friction epsd2 #Hertzian without cohesion
+pair_coeff  * *
+
+# Timestep 
+timestep    ${dt}
+
+# Gravity vector
+fix  gravi all gravity 9.81 vector 0.0 0.0 -1.0
+
+
+# Loading geometry
+fix  tube all mesh/surface/stress file meshes_packing/tube.stl type 1 
+fix  stopper all mesh/surface/stress file meshes_packing/stopper.stl type 1 
+fix  inface all mesh/surface file meshes_packing/insertion_face.stl type 1 
+ 
+# Definition of geometry as walls 
+fix  granwalls all wall/gran model hertz tangential history rolling_friction epsd2 mesh n_meshes 2 meshes tube stopper
+
+
+# Distributions for insertion
+fix  pts1 all particletemplate/sphere 15485863 atom_type 1 density constant ${density} radius constant ${radius1}
+fix  pdd1 all particledistribution/discrete 32452843  ${nradius} pts1 ${frac1}
+
+# Region and insertion
+group  nve_group region domain
+
+fix    ins nve_group insert/stream seed 32452867 distributiontemplate pdd1 &
+       mass ${fillmass} massrate ${fillmassrate} insert_every 1000 overlapcheck yes all_in no vel constant 0.0 0.0 -1.0 &
+       insertion_face inface 
+
+# Apply nve integration to all particles that are inserted as single particles
+fix    integr nve_group nve/sphere
+
+# Output settings, include total thermal energy
+compute       1 all erotate/sphere
+thermo_style  custom step atoms ke c_1 vol
+thermo        1000
+thermo_modify lost ignore norm no
+
+# Check timestep value
+fix  ts_check all check/timestep/gran 1000 0.2 0.2 # every 1000 run and warning if timestep > 20% of Rayleigh and Hertz timestep
+
+# Insert the first particles so that dump is not empty
+run    1
+#dump   dmp all custom/vtk 200 post_packing/particle_*.vtk id type type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius 
+#dump   tube all mesh/vtk 200 post_packing/mesh_tube_*.vtk stress wear tube
+#dump   stopper all mesh/vtk 200 post_packing/mesh_stopper_*.vtk stress wear stopper
+
+
+# Variable kinetic energy
+variable ec equal ke 
+
+
+# Insert particles
+run    ${fillsteps} every 1000 "print 'KINETIC ENERGY = ${ec}'"
+unfix  ins
+
+print 'CLOSING THE TUBE'
+
+fix         movestopper all move/mesh mesh stopper linear ${closevel} 0. 0.
+run         ${closesteps}
+unfix       movestopper
+
+jump in.22_packing_wait
+
+

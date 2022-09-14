@@ -1,0 +1,112 @@
+### Written in the Python script ###
+
+#newton        off
+
+#communicate   single vel yes
+
+#units         si
+
+#neighbor      0.002 bin
+#neigh_modify  delay 0
+
+#read_restart restart/fichier.restart
+
+#######
+
+#Variable pas de temps
+variable dt equal 5e-5
+
+#Nombre de materiaux
+variable natoms equal 1
+
+#Variables proprietes materiaux
+variable youngmodulus equal 5e6
+
+
+variable ec equal ke
+
+timestep    ${dt}
+
+# Contact model 
+pair_style  gran model hertz tangential history rolling_friction epsd2 #Hertzian without cohesion
+pair_coeff  * *
+
+
+#Material properties required for new pair styles
+
+fix  m1 all property/global youngsModulus peratomtype ${youngmodulus}
+fix  m2 all property/global poissonsRatio peratomtype ${poisson}
+fix  m3 all property/global coefficientRestitution peratomtypepair ${natoms} ${CoRest}
+fix  m4 all property/global coefficientFriction peratomtypepair ${natoms} ${CoF}
+fix  m5 all property/global coefficientRollingFriction peratomtypepair ${natoms} ${CoRF}
+
+
+# Gravity vector
+fix  gravi all gravity 9.81 vector 0.0 0.0 -1.0
+
+# Loading geometry
+fix  tube all mesh/surface/stress file meshes_packing/tube.stl type 1 
+fix  stopper all mesh/surface/stress file meshes_packing/stopper.stl type 1 
+
+# Definition of geometry as walls 
+fix  granwalls all wall/gran model hertz tangential history rolling_friction epsd2 mesh n_meshes 2 meshes tube stopper
+
+
+#apply nve integration to all particles that are inserted as single particles
+fix    integr nve_group nve/sphere
+
+#output settings, include total thermal energy
+compute       1 all erotate/sphere
+thermo_style  custom step atoms ke c_1 vol
+thermo        1000
+thermo_modify lost ignore norm no
+
+# Check timestep
+fix  ts_check all check/timestep/gran 1000 0.2 0.2 #toutes les 1000 iterations et warning si le pas de temps est plus grand que 20% du temps de Rayleigh et Hertz
+
+#dump   eprouvette all mesh/vtk 200 post_packing/mesh_eprouvette_restart*.vtk stress wear eprouvette
+#dump   stopper all mesh/vtk 200 post_packing/mesh_stopper_restart_*.vtk stress wear stopper
+#dump   dmp all custom/vtk 200 post_packing/particle_restart_*.vtk id type type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius 
+
+print 'PACKING THE PARTICLES'
+
+#Tap-tap
+
+fix         move1 all move/mesh mesh tube wiggle amplitude 0. 0. 0.1 period 1
+fix         move2 all move/mesh mesh stopper wiggle amplitude 0. 0. 0.1 period 1
+run         1000 
+unfix       move1
+unfix       move2
+
+fix         move3 all move/mesh mesh tube wiggle amplitude 0. 0. -0.1 period 1
+fix         move4 all move/mesh mesh stopper wiggle amplitude 0. 0. -0.1 period 1
+run         1000
+unfix       move3
+unfix       move4
+
+fix         move5 all move/mesh mesh tube wiggle amplitude 0. 0. 0.1 period 1
+fix         move6 all move/mesh mesh stopper wiggle amplitude 0. 0. 0.1 period 1
+run         1000 
+unfix       move5
+unfix       move6
+
+fix         move7 all move/mesh mesh tube wiggle amplitude 0. 0. -0.1 period 1
+fix         move8 all move/mesh mesh stopper wiggle amplitude 0. 0. -0.1 period 1
+run         1000
+unfix       move7
+unfix       move8
+
+fix         move9 all move/mesh mesh tube wiggle amplitude 0. 0. 0.1 period 1
+fix         move10 all move/mesh mesh stopper wiggle amplitude 0. 0. 0.1 period 1
+run         1000 
+unfix       move9
+unfix       move10
+
+fix         move11 all move/mesh mesh tube wiggle amplitude 0. 0. -0.1 period 1
+fix         move12 all move/mesh mesh stopper wiggle amplitude 0. 0. -0.1 period 1
+run         1000
+unfix       move11
+unfix       move12
+
+
+jump in.25_packing_wait2

@@ -1,0 +1,8 @@
+print 'FORMING THE ANGLE OF REPOSE'
+
+run	1000 every 1000 "print 'KINETIC ENERGY = ${ec} and parameters = (${poisson}, ${CoF}, ${CoRest}, ${CoRF})'"
+
+
+if "${ec} < 1e-5" then "jump in.15_angle_end" else "jump in.14_angle_emptying"
+
+

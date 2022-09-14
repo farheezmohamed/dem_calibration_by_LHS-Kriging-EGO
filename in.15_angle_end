@@ -1,0 +1,1 @@
+run 1000 every 1000 "print 'KINETIC ENERGY = ${ec}'"
